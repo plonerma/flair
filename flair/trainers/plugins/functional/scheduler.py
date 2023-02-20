@@ -9,6 +9,7 @@ from torch.optim.lr_scheduler import OneCycleLR  # type: ignore
 from flair.optim import LinearSchedulerWithWarmup
 from flair.trainers.plugins.base import TrainerPlugin, TrainingInterrupt
 from flair.trainers.plugins.functional.best_model import BestModelPlugin
+from flair.trainers.plugins.metrics.base import MetricRecord
 from flair.training_utils import AnnealOnPlateau
 
 log = logging.getLogger("flair")
@@ -133,6 +134,8 @@ class SchedulerPlugin(TrainerPlugin):
         if self.scheduler_state_dict:
             self.scheduler.load_state_dict(self.scheduler_state_dict)
 
+        self.log_bad_epochs = isinstance(scheduler, AnnealOnPlateau)
+
         self.anneal_with_prestarts = anneal_with_prestarts
         self.anneal_with_restarts = anneal_with_restarts
 
@@ -184,6 +187,19 @@ class SchedulerPlugin(TrainerPlugin):
         if isinstance(self.scheduler, (OneCycleLR, LinearSchedulerWithWarmup)):
             self.scheduler.step()
             self.store_learning_rate()
+
+    @TrainerPlugin.hook
+    def after_training_epoch(self, epoch, **kw):
+        if self.log_bad_epochs:
+            try:
+                bad_epochs = self.scheduler.num_bad_epochs
+
+                self.trainer.dispatch(
+                    "metric_recorded", MetricRecord.scalar(name="bad_epochs", value=bad_epochs, global_step=epoch)
+                )
+            except AttributeError:
+                # dont record anything
+                pass
 
     @TrainerPlugin.hook
     def best_model(self, primary_value, auxiliary_value, **kw):

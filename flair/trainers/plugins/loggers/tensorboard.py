@@ -22,21 +22,22 @@ class TensorboardLogger(TrainerPlugin):
         self._warned = False
 
     @TrainerPlugin.hook
-    def before_training_setup(self, **kw):
-        try:
-            from torch.utils.tensorboard import SummaryWriter
+    def after_data_setup(self, use_tensorboard, **kw):
+        if use_tensorboard:
+            try:
+                from torch.utils.tensorboard import SummaryWriter
 
-            if self.log_dir is not None and not os.path.exists(self.log_dir):
-                os.mkdir(self.log_dir)
+                if self.log_dir is not None and not os.path.exists(self.log_dir):
+                    os.mkdir(self.log_dir)
 
                 self.writer = SummaryWriter(log_dir=self.log_dir, comment=self.comment)
 
                 log.info(f"tensorboard logging path is {self.log_dir}")
 
-        except ImportError:
-            log_line(log)
-            log.warning("ATTENTION! PyTorch >= 1.1.0 and pillow are required" "for TensorBoard support!")
-            log_line(log)
+            except ImportError:
+                log_line(log)
+                log.warning("ATTENTION! PyTorch >= 1.1.0 and pillow are required" "for TensorBoard support!")
+                log_line(log)
 
     @TrainerPlugin.hook
     def metric_recorded(self, record):
@@ -44,10 +45,10 @@ class TensorboardLogger(TrainerPlugin):
             # TODO: check if metric is in tracked metrics
             if record.is_scalar:
                 self.writer.add_scalar(str(record.name), record.value, record.global_step, walltime=record.walltime)
-        else:
-            if not self._warned:
-                log.warning("Logging anything other than scalars to TensorBoard is currently not supported.")
-                self._warned = True
+            else:
+                if not self._warned:
+                    log.warning("Logging anything other than scalars to TensorBoard is currently not supported.")
+                    self._warned = True
 
     @TrainerPlugin.hook
     def _training_finally(self, **kw):
