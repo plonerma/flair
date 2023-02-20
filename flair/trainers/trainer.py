@@ -103,7 +103,6 @@ class ModelTrainer(Pluggable):
         train_data = self.corpus.train
 
         if train_with_dev or train_with_test:
-
             parts = [self.corpus.train]
             if train_with_dev and self.corpus.dev:
                 parts.append(self.corpus.dev)
@@ -390,9 +389,11 @@ class ModelTrainer(Pluggable):
 
         self.dispatch("after_training_loop")
 
+        return_values = self.dispatch("collecting_train_return_values")
+
         self.reset_training_attributes()
 
-        return self.dispatch("collecting_train_return_values")
+        return return_values
 
     def resume(
         self,
